@@ -1,0 +1,24 @@
+--- a/src/wrapper.c
++++ b/src/wrapper.c
+@@ -287,10 +287,10 @@
+ 
+ 		if (pfp == NULL)
+ 		{
+-			char tmpbuf[256];
++			char tmpbuf[1024];
+ 
+ 			sprintf (tmpbuf, "%s/%s \"%s\" %d %d %d %s %s %s %s %s %s %s %s",
+-				 CUPS_FILTER_PATH,
++				 getenv ("CEH_FILTER_DIR") ? getenv ("CEH_FILTER_DIR") : CUPS_FILTER_PATH,
+ 				 CUPS_FILTER_NAME,
+ 				 fopt.model,
+ 				 header.cupsWidth,
+@@ -386,7 +386,7 @@
+ 	int i;			/* loop */
+ 
+ 	/* Get option from PPD. */
+-	ppd_path = (char *) cupsGetPPD (printer);
++	ppd_path = getenv ("PPD") ? getenv ("PPD") : (char *) cupsGetPPD (printer);
+ 	ppd_p = ppdOpenFile (ppd_path);
+ 	if(NULL == ppd_p){
+ 		return 1;

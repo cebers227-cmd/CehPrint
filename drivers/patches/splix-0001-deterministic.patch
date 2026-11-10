@@ -1,0 +1,175 @@
+diff --git a/src/algo0x0d.cpp b/src/algo0x0d.cpp
+index 8e8f28a..47fee41 100644
+--- a/src/algo0x0d.cpp
++++ b/src/algo0x0d.cpp
+@@ -269,7 +269,7 @@ BandPlane * Algo0x0D::compress(const Request & request, unsigned char *data,
+     unsigned char * output = NULL;
+ 
+     try {
+-        output = new unsigned char[ maximumBufferSize ];
++        output = new unsigned char[ maximumBufferSize ]();
+     } catch( std::bad_alloc & ) {
+         ERRORMSG(_("Could not allocate work buffer for compression: 0xd"));
+         return NULL;
+diff --git a/src/algo0x0e.cpp b/src/algo0x0e.cpp
+index 8efbe75..5523de8 100644
+--- a/src/algo0x0e.cpp
++++ b/src/algo0x0e.cpp
+@@ -208,7 +208,7 @@ BandPlane * Algo0x0E::compress(const Request & request, unsigned char *data,
+     try {
+         /* Estimate a buffer size equal to 2-byte control header overhead +
+            maxWorkRb, times the bitmap height + up to 3-byte padding at end. */
+-        output = new unsigned char[ ( 2 + maxWorkRb ) * height + 3 ];
++        output = new unsigned char[ ( 2 + maxWorkRb ) * height + 3 ]();
+     } catch( std::bad_alloc & ){
+         /* Catch error if buffer creation fails. */
+         ERRORMSG(_("Could not allocate work buffer for encoding: 0xe"));
+diff --git a/src/algo0x11.cpp b/src/algo0x11.cpp
+index 45c6a3e..4c88687 100644
+--- a/src/algo0x11.cpp
++++ b/src/algo0x11.cpp
+@@ -32,9 +32,13 @@
+  */
+ int Algo0x11::__compare(const void *n1, const void *n2)
+ {
+-    // n2 and n1 has been exchanged since the first
+-    // element of the array MUST be the biggest
+-    return *(uint32_t *)n2 - *(uint32_t *)n1;
++    // Most frequent offset first. Ties are ordered by ascending offset so the
++    // result does not depend on how the C library implements qsort().
++    const uint32_t *a = (const uint32_t *)n1;
++    const uint32_t *b = (const uint32_t *)n2;
++    if (a[0] != b[0])
++        return a[0] < b[0] ? 1 : -1;
++    return a[1] < b[1] ? -1 : (a[1] > b[1] ? 1 : 0);
+ }
+ 
+ bool Algo0x11::_lookupBestOccurs(const unsigned char* data, unsigned long size)
+@@ -85,7 +89,7 @@ bool Algo0x11::_compress(const unsigned char *data, unsigned long size,
+ 
+     // Create the output buffer
+     maxOutputSize = size;
+-    out = new unsigned char[maxOutputSize];
++    out = new unsigned char[maxOutputSize]();
+ 
+     // Print the table
+     for (unsigned long i=0; i < TABLE_PTR_SIZE; i++, w += 2) {
+@@ -185,7 +189,7 @@ bool Algo0x11::_compress(const unsigned char *data, unsigned long size,
+ 
+     // Copy the buffer in a best buffer
+     outputSize = w;
+-    output = new unsigned char[outputSize];
++    output = new unsigned char[outputSize]();
+     memcpy(output, out, outputSize);
+     delete[] out;
+ 
+diff --git a/src/algo0x13.cpp b/src/algo0x13.cpp
+index d93a4fd..1d49f3b 100644
+--- a/src/algo0x13.cpp
++++ b/src/algo0x13.cpp
+@@ -43,7 +43,7 @@ void Algo0x13::_callback(unsigned char *data, size_t len, void *arg)
+         bandList_t* bandList;
+         unsigned char *tmp;
+ 
+-        tmp = new unsigned char[len];
++        tmp = new unsigned char[len]();
+         bandList = new bandList_t;
+         memcpy(tmp, data, len);
+         bandList->band = new BandPlane();
+@@ -82,7 +82,7 @@ void Algo0x13::_callback(unsigned char *data, size_t len, void *arg)
+ 
+             // Allocate a new data buffer if needed
+             if (!info->data)
+-                info->data = new unsigned char[info->maxSize];
++                info->data = new unsigned char[info->maxSize]();
+ 
+             // Register data
+             freeSpace = info->maxSize - info->size;
+diff --git a/src/algo0x15.cpp b/src/algo0x15.cpp
+index b498b4f..676d025 100644
+--- a/src/algo0x15.cpp
++++ b/src/algo0x15.cpp
+@@ -118,7 +118,7 @@ BandPlane* Algo0x15::compress(const Request& request, unsigned char *data,
+         _maxSize = MAX_SIZE;
+     }
+     if (NULL == _data)
+-        _data = new unsigned char[_maxSize];
++        _data = new unsigned char[_maxSize]();
+     wbytes = (width + 7) / 8;
+     jbg85_enc_init(&state, width, height, _callback, this);
+     jbg85_enc_options(&state, JBG_LRLTWO, height, 0);
+@@ -130,7 +130,7 @@ BandPlane* Algo0x15::compress(const Request& request, unsigned char *data,
+     }
+     if (_error)
+         return NULL;
+-    unsigned char *final_data = new unsigned char[_size];
++    unsigned char *final_data = new unsigned char[_size]();
+     memcpy(final_data, _data, _size);
+     plane = new BandPlane();
+     plane->setCompression(0x15);
+diff --git a/src/bandplane.cpp b/src/bandplane.cpp
+index 93bec11..764627a 100644
+--- a/src/bandplane.cpp
++++ b/src/bandplane.cpp
+@@ -82,7 +82,7 @@ BandPlane* BandPlane::restoreIntoMemory(int fd)
+     plane = new BandPlane();
+     read(fd, &plane->_colorNr, sizeof(plane->_colorNr));
+     read(fd, &plane->_size, sizeof(plane->_size));
+-    data = new unsigned char[plane->_size];
++    data = new unsigned char[plane->_size]();
+     read(fd, data, plane->_size);
+     plane->_data = data;
+     read(fd, &plane->_checksum, sizeof(plane->_checksum));
+diff --git a/src/compress.cpp b/src/compress.cpp
+index 762f77d..c7ff4aa 100644
+--- a/src/compress.cpp
++++ b/src/compress.cpp
+@@ -176,7 +176,7 @@ static bool _compressBandedPage(const Request& request, Page* page)
+     bandSize = bandWidthInB * bandHeight;
+ 
+     index = hardMarginY * lineWidthInB;
+-    band = new unsigned char[bandSize];
++    band = new unsigned char[bandSize]();
+     for (unsigned int i=0; i < colors; i++)
+         planes[i] = page->planeBuffer(i);
+ 
+@@ -323,7 +323,7 @@ static bool _compressBandedJBIGPage(const Request& request, Page* page)
+     bandSize = bufferWidthInB * bandHeight;
+     index = hardMarginY * lineWidthInB;
+     for (unsigned int i=0; i < page->colorsNr(); i++) {
+-        band[i] = new unsigned char[bandSize];
++        band[i] = new unsigned char[bandSize]();
+         planes[i] = page->planeBuffer(i);
+     }
+     /*
+@@ -425,7 +425,7 @@ static bool _compressWholePage(const Request& request, Page* page)
+     bandHeight = request.printer()->bandHeight();
+     // Alignment of the page height on band height
+     planeHeight = ((pageHeight + bandHeight - 1) / bandHeight) * bandHeight;
+-    buffer = new unsigned char[lineWidthInB * planeHeight];
++    buffer = new unsigned char[lineWidthInB * planeHeight]();
+ 
+     do {
+         current = NULL;
+diff --git a/src/document.cpp b/src/document.cpp
+index d5e3b77..6bfc53c 100644
+--- a/src/document.cpp
++++ b/src/document.cpp
+@@ -131,7 +131,7 @@ Page* Document::getNextRawPage(const Request& request)
+     documentHeight -= clippingY;
+     pageHeight -= 2*marginHeight;
+     clippingY *= colors;
+-    line = new unsigned char[header.cupsBytesPerLine];
++    line = new unsigned char[header.cupsBytesPerLine]();
+     DEBUGMSG(_("Document width=%lu height=%lu"), documentWidth, documentHeight);
+     DEBUGMSG(_("Page width=%lu (%lu) height=%lu"), pageWidth, pageWidthInB, pageHeight);
+     DEBUGMSG(_("Margin width in bytes=%lu height=%lu"), marginWidthInB, marginHeight);
+@@ -140,7 +140,7 @@ Page* Document::getNextRawPage(const Request& request)
+ 
+     // Prepare planes and clip vertically the document if needed
+     for (unsigned char i=0; i < colors; i++) {
+-        planes[i] = new unsigned char[planeSize];
++        planes[i] = new unsigned char[planeSize]();
+         memset(planes[i], 0, planeSize);
+     }
+     while (clippingY) {
